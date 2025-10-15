@@ -238,6 +238,7 @@ const Reports = () => {
                     <Input
                       type="date"
                       value={dateTo}
+                      min={dateFrom || ''}
                       onChange={(e) => setDateTo(e.target.value)}
                       className="bg-white/10 border-white/20 text-white"
                     />
