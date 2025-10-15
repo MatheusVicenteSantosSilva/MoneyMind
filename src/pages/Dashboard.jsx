@@ -11,7 +11,8 @@ import {
   User,
   LogOut,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  HelpCircle 
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
