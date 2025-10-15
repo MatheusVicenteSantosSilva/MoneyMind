@@ -2,18 +2,18 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
-import { 
-    HelpCircle, 
-    Wallet, 
-    Plus, 
-    BarChart3, 
-    TrendingUp, 
-    FileText, 
-    User,
-    LogOut,
-    ArrowUpRight,
-    ArrowDownRight,
-    Trash2 // NOVO: Ícone de lixeira
+import { 
+    HelpCircle, 
+    Wallet, 
+    Plus, 
+    BarChart3, 
+    TrendingUp, 
+    FileText, 
+    User,
+    LogOut,
+    ArrowUpRight,
+    ArrowDownRight,
+    Trash2 
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -23,28 +23,26 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTransactions } from '../hooks/useTransactions';
 import { useToast } from '../components/ui/use-toast';
 
-// NOVO: Importe os componentes do AlertDialog (Ajuste o caminho se necessário)
-import { 
-    AlertDialog, 
-    AlertDialogAction, 
-    AlertDialogCancel, 
-    AlertDialogContent, 
-    AlertDialogDescription, 
-    AlertDialogFooter, 
-    AlertDialogHeader, 
-    AlertDialogTitle, 
-    AlertDialogTrigger 
-} from '../components/ui/alert-dialog'; 
+// IMPORTANTE: Mantenha estes imports e ajuste os caminhos para serem case-sensitive!
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle, 
+    AlertDialogTrigger 
+} from '../components/ui/alert-dialog';  // VERIFIQUE A CAIXA (maiúscula/minúscula) DESTE CAMINHO
 
 const Dashboard = () => {
-  // NOVO: Busque deleteTransaction do hook
   const { user, logout } = useAuth();
-  const { transactions, getBalance, deleteTransaction } = useTransactions(); 
+  const { transactions, getBalance, deleteTransaction } = useTransactions(); 
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const balance = getBalance();
-  // Assume que o ID da transação está incluído no objeto
   const recentTransactions = transactions.slice(-5).reverse();
 
   const handleLogout = () => {
@@ -56,23 +54,26 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  // NOVO: Função para lidar com a exclusão da transação
-  const handleDeleteTransaction = (id, description) => {
+  // CORREÇÃO/MELHORIA: Tornando a função assíncrona para melhor gestão da exclusão
+  const handleDeleteTransaction = async (id, description) => {
     try {
-      // Chama a função do hook para remover a transação do estado (e do DB, se implementado)
-      const result = deleteTransaction(id); 
+      // Usa await, pressupondo que deleteTransaction seja uma operação assíncrona (ex: API/DB)
+      const result = await deleteTransaction(id); 
 
-      // Aqui, se deleteTransaction for assíncrono, você precisaria de 'await' e este bloco seria 'async'
+      // Assume que o hook retorna um objeto com 'success: true' ou algo similar
       if (result && result.success) {
         toast({
           title: "Excluído com sucesso!",
           description: `A transação '${description}' foi removida.`,
         });
-      }
+      } else if (result && result.error) {
+           // Em caso de erro conhecido retornado pelo hook
+           throw new Error(result.error);
+       }
     } catch (error) {
       toast({
         title: "Erro ao excluir",
-        description: "Não foi possível remover a transação. Tente novamente.",
+        description: `Não foi possível remover a transação. Detalhes: ${error.message || 'Erro desconhecido'}`,
         variant: "destructive",
       });
     }
@@ -142,16 +143,133 @@ const Dashboard = () => {
 
       <div className="min-h-screen p-4 md:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header (mantido) */}
-          {/* ... */}
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <div>
+              <h1 className="text-3xl font-bold text-white">
+                Olá, {user?.name?.split(' ')[0]}! 👋
+              </h1>
+              <p className="text-gray-300 mt-1">
+                Bem-vindo de volta ao seu controle financeiro
+              </p>
+            </div>
 
-          {/* Balance Card (mantido) */}
-          {/* ... */}
+            {/* Ajuda + Perfil */}
+            <div className="flex items-center space-x-4">
+              {/* Ícone de Ajuda */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-12 w-12 rounded-full">
+                    <HelpCircle className="h-6 w-6 text-white" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700" align="end">
+                  <DropdownMenuItem
+                    className="text-white hover:bg-slate-700"
+                    onClick={() => (window.location.href = 'mailto:contato.moneymind@gmail.com')}
+                  >
+                    <span>Entrar em contato</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Transactions Section (Funcionalidades - mantido) */}
-          {/* ... */}
+              {/* Menu do Perfil */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-12 w-12 rounded-full">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold">
+                        {user?.name?.charAt(0)?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700" align="end">
+                  <DropdownMenuItem className="text-white hover:bg-slate-700">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>{user?.name}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-red-400 hover:bg-slate-700 hover:text-red-300"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </motion.div>
 
-          {/* Recent Transactions (BLOCO MODIFICADO) */}
+          {/* Balance Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="glass-effect border-white/20 card-hover">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center space-x-2 text-white">
+                  <Wallet className="h-6 w-6 text-blue-400" />
+                  <span>Saldo da Carteira</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold text-white mb-2">
+                  {formatCurrency(balance)}
+                </div>
+                <p className={`text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {balance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Transactions Section (Funcionalidades) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="glass-effect border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Funcionalidades</CardTitle>
+                <CardDescription className="text-gray-300">
+                  Clique em qualquer funcionalidade para abrir em nova página
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {transactionCards.map((card, index) => (
+                    <motion.div
+                      key={card.title}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                      className="cursor-pointer"
+                      onClick={() => navigate(card.path)}
+                    >
+                      <Card className="glass-effect border-white/20 card-hover">
+                        <CardContent className="p-6">
+                          <div className={`inline-flex p-3 rounded-lg bg-gradient-to-r ${card.color} mb-4`}>
+                            <card.icon className="h-6 w-6 text-white" />
+                          </div>
+                          <h3 className="font-semibold text-white mb-2">{card.title}</h3>
+                          <p className="text-sm text-gray-300">{card.description}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Recent Transactions */}
           {recentTransactions.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -182,8 +300,8 @@ const Dashboard = () => {
                             <p className="text-sm text-gray-400">{transaction.category}</p>
                           </div>
                         </div>
-                        
-                        {/* NOVO BLOCO: Valor, Data e Botão de Excluir */}
+                        
+                        {/* BLOCO: Valor, Data e Botão de Excluir */}
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <p className={`font-semibold ${getTransactionColor(transaction.type)}`}>
@@ -194,19 +312,19 @@ const Dashboard = () => {
                               {new Date(transaction.createdAt).toLocaleDateString('pt-BR')}
                             </p>
                           </div>
-                          
+                          
                           {/* Botão de Exclusão com Modal de Confirmação */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
                                 className="text-gray-400 hover:text-red-500 transition-colors"
                               >
                                 <Trash2 className="h-5 w-5" />
                               </Button>
                             </AlertDialogTrigger>
-                            
+                            
                             {/* Modal de Confirmação */}
                             <AlertDialogContent className="bg-slate-800 border-slate-700 text-white">
                               <AlertDialogHeader>
@@ -218,7 +336,7 @@ const Dashboard = () => {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel className="border-slate-600 text-white hover:bg-slate-700">Cancelar</AlertDialogCancel>
-                                <AlertDialogAction 
+                                <AlertDialogAction 
                                   className="bg-red-600 hover:bg-red-700 text-white"
                                   // Chama a função handleDeleteTransaction, passando ID e Descrição
                                   onClick={() => handleDeleteTransaction(transaction.id, transaction.description)}
