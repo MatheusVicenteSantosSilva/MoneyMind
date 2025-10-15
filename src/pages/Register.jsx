@@ -1,277 +1,376 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Eye, EyeOff, DollarSign, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, FileText, Download, Calendar, Filter } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { useAuth } from '../contexts/AuthContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { useTransactions } from '../hooks/useTransactions';
 import { useToast } from '../components/ui/use-toast';
+import jsPDF from 'jspdf';
 
-const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+const Reports = () => {
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(false);
-  const [passwordValidations, setPasswordValidations] = useState({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    specialChar: false
-  });
-
-  const { register } = useAuth();
+  
+  const { transactions } = useTransactions();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  const today = new Date();
+  const formattedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
-  // Validação em tempo real da senha
-  const validatePassword = (password) => {
-    setPasswordValidations({
-      length: password.length >= 6,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /\d/.test(password),
-      specialChar: /[\W_]/.test(password)
-    });
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const getFilteredTransactions = () => {
+    let filtered = [...transactions];
 
-    // Regex para validação final
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
-    
-    if (!passwordRegex.test(formData.password)) {
-      toast({
-        title: "Erro no cadastro",
-        description: "A senha deve ter pelo menos 6 caracteres, incluindo uma letra maiúscula, uma minúscula, um número e um caractere especial.",
-        variant: "destructive",
-      });
-      return;
+    // Filter by date range
+    if (dateFrom) {
+      filtered = filtered.filter(t => new Date(t.createdAt) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      filtered = filtered.filter(t => new Date(t.createdAt) <= new Date(dateTo));
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Erro no cadastro",
-        description: "As senhas não coincidem.",
-        variant: "destructive",
-      });
-      return;
+    // Filter by type
+    if (filterType !== 'all') {
+      filtered = filtered.filter(t => t.type === filterType);
     }
 
+    return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  };
+
+  const generatePDF = async () => {
     setLoading(true);
-
+    
     try {
-      const result = await register({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      });
-
-      if (result.success) {
+      const filteredTransactions = getFilteredTransactions();
+      
+      if (filteredTransactions.length === 0) {
         toast({
-          title: "Cadastro realizado com sucesso!",
-          description: "Bem-vindo ao MoneyMind.",
-        });
-        navigate('/dashboard');
-      } else {
-        // Checa se o erro é email duplicado
-        const emailError = result.error?.toLowerCase().includes("email");
-        toast({
-          title: "Erro no cadastro",
-          description: emailError
-            ? "Esse email já está sendo utilizado em outra conta."
-            : result.error,
+          title: "Nenhuma transação encontrada",
+          description: "Não há transações para gerar o relatório com os filtros aplicados.",
           variant: "destructive",
         });
+        setLoading(false);
+        return;
       }
-    } catch (err) {
+
+      const pdf = new jsPDF();
+      
+      // Header
+      pdf.setFontSize(20);
+      pdf.text('MoneyMind - Relatório Financeiro', 20, 30);
+      
+      pdf.setFontSize(12);
+      pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 45);
+      
+      if (dateFrom || dateTo) {
+        const period = `Período: ${dateFrom ? formatDate(dateFrom) : 'Início'} até ${dateTo ? formatDate(dateTo) : 'Hoje'}`;
+        pdf.text(period, 20, 55);
+      }
+
+      // Summary
+      const totalIncome = filteredTransactions
+        .filter(t => t.type === 'receita' || t.type === 'receita_continua')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalExpenses = filteredTransactions
+        .filter(t => t.type === 'despesa' || t.type === 'debito_automatico')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const balance = totalIncome - totalExpenses;
+
+      pdf.setFontSize(14);
+      pdf.text('Resumo:', 20, 75);
+      pdf.setFontSize(12);
+      pdf.text(`Total de Receitas: ${formatCurrency(totalIncome)}`, 20, 90);
+      pdf.text(`Total de Despesas: ${formatCurrency(totalExpenses)}`, 20, 105);
+      pdf.text(`Saldo Líquido: ${formatCurrency(balance)}`, 20, 120);
+
+      // Transactions table
+      pdf.setFontSize(14);
+      pdf.text('Transações:', 20, 140);
+      
+      let yPosition = 155;
+      pdf.setFontSize(10);
+      
+      // Table headers
+      pdf.text('Data', 20, yPosition);
+      pdf.text('Descrição', 50, yPosition);
+      pdf.text('Categoria', 110, yPosition);
+      pdf.text('Tipo', 150, yPosition);
+      pdf.text('Valor', 180, yPosition);
+      
+      yPosition += 10;
+      
+      filteredTransactions.forEach((transaction, index) => {
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        const date = formatDate(transaction.createdAt);
+        const description = transaction.description.length > 20 
+          ? transaction.description.substring(0, 20) + '...' 
+          : transaction.description;
+        const category = transaction.category.length > 15 
+          ? transaction.category.substring(0, 15) + '...' 
+          : transaction.category;
+        const type = transaction.type === 'receita' ? 'Receita' :
+                    transaction.type === 'receita_continua' ? 'Rec. Cont.' :
+                    transaction.type === 'despesa' ? 'Despesa' : 'Déb. Auto';
+        const amount = (transaction.type === 'receita' || transaction.type === 'receita_continua' ? '+' : '-') + 
+                      formatCurrency(transaction.amount);
+        
+        pdf.text(date, 20, yPosition);
+        pdf.text(description, 50, yPosition);
+        pdf.text(category, 110, yPosition);
+        pdf.text(type, 150, yPosition);
+        pdf.text(amount, 180, yPosition);
+        
+        yPosition += 8;
+      });
+
+      // Save PDF
+      const fileName = `MoneyMind_Relatorio_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
       toast({
-        title: "Erro no cadastro",
-        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        title: "Relatório gerado com sucesso!",
+        description: `O arquivo ${fileName} foi baixado.`,
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Erro ao gerar relatório",
+        description: "Ocorreu um erro ao gerar o PDF. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
+
+  const filteredTransactions = getFilteredTransactions();
+
+  const totalIncome = filteredTransactions
+    .filter(t => t.type === 'receita' || t.type === 'receita_continua')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const totalExpenses = filteredTransactions
+    .filter(t => t.type === 'despesa' || t.type === 'debito_automatico')
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <>
       <Helmet>
-        <title>Cadastro - MoneyMind</title>
-        <meta name="description" content="Crie sua conta no MoneyMind e comece a gerenciar suas finanças pessoais de forma inteligente." />
+        <title>Relatórios - MoneyMind</title>
+        <meta name="description" content="Gere relatórios completos das suas transações financeiras em PDF no MoneyMind." />
       </Helmet>
-      
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-          {/* Left Side - Branding */}
+
+      <div className="min-h-screen p-4 md:p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Header */}
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="hidden lg:block space-y-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center space-x-4"
           >
-            {/* ... restante do branding permanece igual ... */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/dashboard')}
+              className="text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Relatórios Financeiros</h1>
+              <p className="text-gray-300 mt-1">
+                Gere relatórios detalhados das suas transações
+              </p>
+            </div>
           </motion.div>
 
-          {/* Right Side - Register Form */}
+          {/* Filters */}
           <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="w-full max-w-md mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
           >
-            <Card className="glass-effect border-white/20 shadow-2xl">
-              <CardHeader className="space-y-1 text-center">
-                <div className="lg:hidden flex items-center justify-center space-x-2 mb-4">
-                  <div className="p-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
-                    <DollarSign className="h-6 w-6 text-white" />
-                  </div>
-                  <h1 className="text-2xl font-bold gradient-text">MoneyMind</h1>
-                </div>
-                <div className="flex items-center justify-center space-x-2">
-                  <UserPlus className="h-6 w-6 text-blue-400" />
-                  <CardTitle className="text-2xl font-bold text-white">Criar conta</CardTitle>
-                </div>
+            <Card className="glass-effect border-white/20">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-white">
+                  <Filter className="h-6 w-6 text-blue-400" />
+                  <span>Filtros do Relatório</span>
+                </CardTitle>
                 <CardDescription className="text-gray-300">
-                  Preencha os dados para começar
+                  Configure os filtros para personalizar seu relatório
                 </CardDescription>
               </CardHeader>
-              
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-white">Nome completo</Label>
+                    <Label className="text-white">Data Inicial</Label>
                     <Input
-                      id="name"
-                      name="name"
-                      type="text"
-                      placeholder="Seu nome completo"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-white">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      type="date"
+                      value={dateFrom}
+                      max={new Date().toISOString().split('T')[0]} // limita a data para hoje
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="bg-white/10 border-white/20 text-white"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-white">Senha</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Mínimo 6 caracteres"
-                        value={formData.password}
-                        onChange={(e) => {
-                          handleChange(e);
-                          validatePassword(e.target.value);
-                        }}
-                        required
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-
-                    {/* Lista de validação em tempo real */}
-                    <ul className="text-sm mt-2 space-y-1">
-                      <li className={passwordValidations.length ? "text-green-400" : "text-red-400"}>
-                        Mínimo 6 caracteres
-                      </li>
-                      <li className={passwordValidations.uppercase ? "text-green-400" : "text-red-400"}>
-                        Pelo menos uma letra maiúscula
-                      </li>
-                      <li className={passwordValidations.lowercase ? "text-green-400" : "text-red-400"}>
-                        Pelo menos uma letra minúscula
-                      </li>
-                      <li className={passwordValidations.number ? "text-green-400" : "text-red-400"}>
-                        Pelo menos um número
-                      </li>
-                      <li className={passwordValidations.specialChar ? "text-green-400" : "text-red-400"}>
-                        Pelo menos um caractere especial
-                      </li>
-                    </ul>
+                    <Label className="text-white">Data Final</Label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || ''}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="bg-white/10 border-white/20 text-white"
+                    />
                   </div>
-
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-white">Confirmar senha</Label>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirme sua senha"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        required
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
+                    <Label className="text-white">Tipo de Transação</Label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectItem value="all" className="text-white hover:bg-slate-700">Todas</SelectItem>
+                        <SelectItem value="receita" className="text-white hover:bg-slate-700">Receita</SelectItem>
+                        <SelectItem value="receita_continua" className="text-white hover:bg-slate-700">Receita Contínua</SelectItem>
+                        <SelectItem value="despesa" className="text-white hover:bg-slate-700">Despesa</SelectItem>
+                        <SelectItem value="debito_automatico" className="text-white hover:bg-slate-700">Débito Automático</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
-                    disabled={loading}
-                  >
-                    {loading ? "Criando conta..." : "Criar conta"}
-                  </Button>
-                </form>
-
-                <div className="mt-6 text-center">
-                  <p className="text-gray-300">
-                    Já tem uma conta?{' '}
-                    <Link
-                      to="/login"
-                      className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                  
+                  <div className="flex items-end">
+                    <Button
+                      onClick={generatePDF}
+                      disabled={loading || filteredTransactions.length === 0}
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
                     >
-                      Faça login
-                    </Link>
-                  </p>
+                      <Download className="h-4 w-4 mr-2" />
+                      {loading ? "Gerando..." : "Gerar PDF"}
+                    </Button>
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="glass-effect border-white/20">
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-400 mb-1">Total de Receitas</p>
+                    <p className="text-2xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="glass-effect border-white/20">
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-400 mb-1">Total de Despesas</p>
+                    <p className="text-2xl font-bold text-red-400">{formatCurrency(totalExpenses)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="glass-effect border-white/20">
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-400 mb-1">Saldo Líquido</p>
+                    <p className={`text-2xl font-bold ${totalIncome - totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatCurrency(totalIncome - totalExpenses)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+
+          {/* Transactions List */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="glass-effect border-white/20">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-white">
+                  <FileText className="h-6 w-6 text-purple-400" />
+                  <span>Transações Filtradas ({filteredTransactions.length})</span>
+                </CardTitle>
+                <CardDescription className="text-gray-300">
+                  Visualize as transações que serão incluídas no relatório
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredTransactions.length > 0 ? (<div className="space-y-4 max-h-96 overflow-y-auto scrollbar-hide">
+                  {filteredTransactions.map((transaction, index) => (
+                    <motion.div
+                      key={transaction.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + index * 0.05 }}
+                      className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.type.includes('receita') ? 'bg-green-400' : 'bg-red-400'
+                        }`}></div>
+                        <div>
+                          <p className="font-medium text-white">{transaction.description}</p>
+                          <p className="text-sm text-gray-400">{transaction.category}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-semibold ${
+                          transaction.type.includes('receita') ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {transaction.type.includes('receita') ? '+' : '-'}
+                          {formatCurrency(transaction.amount)}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatDate(transaction.createdAt)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+                ) : (
+                  <div className="flex items-center justify-center h-48 text-gray-400">
+                    <p>Nenhuma transação encontrada com os filtros selecionados.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -281,6 +380,4 @@ const Register = () => {
   );
 };
 
-export default Register;
-
-
+export default Reports;
