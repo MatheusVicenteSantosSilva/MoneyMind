@@ -73,31 +73,42 @@ const Register = () => {
 
     setLoading(true);
 
-    const result = await register({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password
-    });
-
-    setLoading(false);
-
-    if (result.success) {
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Bem-vindo ao MoneyMind.",
+    try {
+      const result = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
       });
-      navigate('/dashboard'); // garante o redirecionamento
-    } else {
-      const errorMessage = result.error.includes('email')
-        ? "Esse email já está sendo utilizado em outra conta"
-        : result.error;
 
+      if (result && result.success) {
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Bem-vindo ao MoneyMind.",
+        });
+
+        // Delay pequeno para mostrar toast antes do redirecionamento
+        setTimeout(() => navigate('/dashboard'), 300);
+
+      } else {
+        const errorMessage = result?.error?.includes('email')
+          ? "Esse email já está sendo utilizado em outra conta"
+          : result?.error || "Erro desconhecido";
+
+        toast({
+          title: "Erro no cadastro",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
       toast({
         title: "Erro no cadastro",
-        description: errorMessage,
+        description: err.message || "Algo deu errado",
         variant: "destructive",
       });
     }
+
+    setLoading(false);
   };
 
   return (
@@ -209,6 +220,7 @@ const Register = () => {
 
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Nome e email */}
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-white">Nome completo</Label>
                     <Input
@@ -237,6 +249,7 @@ const Register = () => {
                     />
                   </div>
 
+                  {/* Senha */}
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-white">Senha</Label>
                     <div className="relative">
@@ -255,7 +268,6 @@ const Register = () => {
                       </button>
                     </div>
 
-                    {/* Validação de senha em tempo real */}
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex items-center space-x-2">
                         {passwordValidations.length ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
@@ -280,6 +292,7 @@ const Register = () => {
                     </ul>
                   </div>
 
+                  {/* Confirmar senha */}
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword" className="text-white">Confirmar senha</Label>
                     <div className="relative">
@@ -326,4 +339,3 @@ const Register = () => {
 };
 
 export default Register;
-
