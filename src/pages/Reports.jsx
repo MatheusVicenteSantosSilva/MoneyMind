@@ -228,6 +228,7 @@ const Reports = () => {
                     <Input
                       type="date"
                       value={dateFrom}
+                      max={new Date().toISOString().split('T')[0]} // limita a data para hoje
                       onChange={(e) => setDateFrom(e.target.value)}
                       className="bg-white/10 border-white/20 text-white"
                     />
