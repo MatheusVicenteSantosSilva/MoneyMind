@@ -1,14 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, DollarSign, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/use-toast';
+
+// Função de avaliação de senha usando Expressão Regular (Regex)
+const validatePassword = (password) => {
+  // Regex para verificar 1 maiúscula, 1 minúscula, 1 número, 1 especial e 6+ digitos
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}\[\]:;"'<>,.?/\\|-])[A-Za-z\d!@#$%^&*()_+={}\[\]:;"'<>,.?/\\|-]{6,}$/;
+  
+  if (!passwordRegex.test(password)) {
+    return {
+      isValid: false,
+      message: "A senha deve ter no mínimo 6 caracteres e incluir pelo menos 1 letra maiúscula, 1 minúscula, 1 número e 1 caractere especial."
+    };
+  }
+
+  return { isValid: true };
+};
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -20,14 +35,6 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [passwordValidations, setPasswordValidations] = useState({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    specialChar: false,
-  });
-
   const { register } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -39,32 +46,10 @@ const Register = () => {
     });
   };
 
-  // Atualiza validação da senha em tempo real
-  useEffect(() => {
-    const { password } = formData;
-    setPasswordValidations({
-      length: password.length >= 6,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      specialChar: /[\W_]/.test(password),
-    });
-  }, [formData.password]);
-
-  const validatePassword = () => Object.values(passwordValidations).every(Boolean);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validatePassword()) {
-      toast({
-        title: "Senha inválida",
-        description: "A senha deve ter no mínimo 6 caracteres, uma letra maiúscula, uma letra minúscula, um número e um caractere especial.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    
+    // 1. Verificar se as senhas coincidem
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Erro no cadastro",
@@ -74,16 +59,28 @@ const Register = () => {
       return;
     }
 
+    // 2. Aplicar a avaliação da política de senha
+    const validation = validatePassword(formData.password);
+    
+    if (!validation.isValid) {
+      toast({
+        title: "Senha fraca",
+        description: validation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
-    const result = await register({
+    // Lógica de registro (assumindo que useAuth().register() retorna um objeto com 'success' ou 'error')
+    // Nota: Se 'register' for assíncrono, você precisa usar 'await'
+    const result = await register({ // Adicionei 'await' aqui, caso seja uma função assíncrona
       name: formData.name,
       email: formData.email,
       password: formData.password
     });
-
-    setLoading(false);
-
+    
     if (result.success) {
       toast({
         title: "Cadastro realizado com sucesso!",
@@ -93,10 +90,12 @@ const Register = () => {
     } else {
       toast({
         title: "Erro no cadastro",
-        description: result.error,
+        description: result.error || "Ocorreu um erro desconhecido no cadastro.",
         variant: "destructive",
       });
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -105,10 +104,9 @@ const Register = () => {
         <title>Cadastro - MoneyMind</title>
         <meta name="description" content="Crie sua conta no MoneyMind e comece a gerenciar suas finanças pessoais de forma inteligente." />
       </Helmet>
-
+      
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-
           {/* Left Side - Branding */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -116,7 +114,69 @@ const Register = () => {
             transition={{ duration: 0.8 }}
             className="hidden lg:block space-y-8"
           >
-            {/* ...mantém o conteúdo do lado esquerdo igual ao seu código original */}
+            <div className="space-y-4">
+              <motion.div
+                className="flex items-center space-x-3"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
+                  <DollarSign className="h-8 w-8 text-white" />
+                </div>
+                <h1 className="text-4xl font-bold gradient-text">MoneyMind</h1>
+              </motion.div>
+              
+              <motion.p
+                className="text-xl text-gray-300 max-w-md"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                Junte-se a milhares de pessoas que já transformaram sua vida financeira.
+              </motion.p>
+            </div>
+
+            <motion.div
+              className="space-y-6"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-3">O que você ganha:</h3>
+                <ul className="space-y-2 text-gray-300">
+                  <li className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    <span>Controle total das suas finanças</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                    <span>Relatórios detalhados em PDF</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span>Projeções do próximo mês</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                    <span>Análises por categoria</span>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.8 }}
+            >
+              <img 
+                className="w-full max-w-md rounded-2xl shadow-2xl animate-pulse-slow" 
+                alt="Pessoa feliz gerenciando finanças"
+               src="https://images.unsplash.com/photo-1625708974337-fb8fe9af5711" />
+            </motion.div>
           </motion.div>
 
           {/* Right Side - Register Form */}
@@ -142,10 +202,9 @@ const Register = () => {
                   Preencha os dados para começar
                 </CardDescription>
               </CardHeader>
-
+              
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Nome e email */}
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-white">Nome completo</Label>
                     <Input
@@ -173,8 +232,7 @@ const Register = () => {
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
                     />
                   </div>
-
-                  {/* Senha com validação */}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-white">Senha</Label>
                     <div className="relative">
@@ -182,7 +240,7 @@ const Register = () => {
                         id="password"
                         name="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 6 dígitos, 1 maiúscula, 1 minúscula, 1 número, 1 especial"
                         value={formData.password}
                         onChange={handleChange}
                         required
@@ -196,32 +254,8 @@ const Register = () => {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-
-                    <ul className="mt-2 space-y-1 text-sm">
-                      <li className="flex items-center space-x-2">
-                        {passwordValidations.length ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
-                        <span>6 caracteres ou mais</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        {passwordValidations.uppercase ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
-                        <span>Uma letra maiúscula</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        {passwordValidations.lowercase ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
-                        <span>Uma letra minúscula</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        {passwordValidations.number ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
-                        <span>Um número</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        {passwordValidations.specialChar ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
-                        <span>Um caractere especial</span>
-                      </li>
-                    </ul>
                   </div>
 
-                  {/* Confirmar senha */}
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword" className="text-white">Confirmar senha</Label>
                     <div className="relative">
