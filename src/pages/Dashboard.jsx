@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
+import { HelpCircle } from 'lucide-react';
 import { 
   Wallet, 
   Plus, 
@@ -12,11 +13,15 @@ import {
   LogOut,
   ArrowUpRight,
   ArrowDownRight,
+  Mail,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { Textarea } from '../components/ui/textarea';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactions } from '../hooks/useTransactions';
 import { useToast } from '../components/ui/use-toast';
@@ -29,6 +34,9 @@ const Dashboard = () => {
 
   const balance = getBalance();
   const recentTransactions = transactions.slice(-5).reverse();
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -91,6 +99,33 @@ const Dashboard = () => {
     }
   ];
 
+  const handleContact = () => {
+    window.location.href = "mailto:contato.moneymind@gmail.com";
+  };
+
+  const handleReportSubmit = () => {
+    if (!reportMessage.trim()) {
+      toast({
+        title: "Campo vazio",
+        description: "Por favor, descreva o problema antes de enviar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Abre o e-mail com a mensagem
+    const mailtoLink = `mailto:contato.moneymind@gmail.com?subject=Relato de problema no MoneyMind&body=${encodeURIComponent(reportMessage)}`;
+    window.location.href = mailtoLink;
+
+    setReportMessage('');
+    setIsHelpOpen(false);
+
+    toast({
+      title: "Relato enviado",
+      description: "Seu problema foi reportado. Obrigado pelo feedback!"
+    });
+  };
+
   return (
     <>
       <Helmet>
@@ -115,30 +150,44 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-12 w-12 rounded-full">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold">
-                      {user?.name?.charAt(0)?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700" align="end">
-                <DropdownMenuItem className="text-white hover:bg-slate-700">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>{user?.name}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="text-red-400 hover:bg-slate-700 hover:text-red-300"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Área com Ajuda e Perfil */}
+            <div className="flex items-center space-x-4">
+              {/* Botão de ajuda */}
+              <Button
+                variant="ghost"
+                className="text-gray-300 hover:text-white"
+                onClick={() => setIsHelpOpen(true)}
+              >
+                <HelpCircle className="h-6 w-6 mr-2" />
+                Ajuda
+              </Button>
+
+              {/* Menu do perfil */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-12 w-12 rounded-full">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold">
+                        {user?.name?.charAt(0)?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700" align="end">
+                  <DropdownMenuItem className="text-white hover:bg-slate-700">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>{user?.name}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-red-400 hover:bg-slate-700 hover:text-red-300"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </motion.div>
 
           {/* Balance Card */}
@@ -205,53 +254,45 @@ const Dashboard = () => {
             </Card>
           </motion.div>
 
-          {/* Recent Transactions */}
-          {recentTransactions.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Card className="glass-effect border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-white">Transações Recentes</CardTitle>
-                  <CardDescription className="text-gray-300">
-                    Suas últimas movimentações financeiras
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {recentTransactions.map((transaction, index) => (
-                      <motion.div
-                        key={transaction.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + index * 0.1 }}
-                        className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10"
-                      >
-                        <div className="flex items-center space-x-3">
-                          {getTransactionIcon(transaction.type)}
-                          <div>
-                            <p className="font-medium text-white">{transaction.description}</p>
-                            <p className="text-sm text-gray-400">{transaction.category}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-semibold ${getTransactionColor(transaction.type)}`}>
-                            {transaction.type === 'receita' || transaction.type === 'receita_continua' ? '+' : '-'}
-                            {formatCurrency(transaction.amount)}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(transaction.createdAt).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+          {/* Modal de ajuda */}
+          <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+            <DialogContent className="bg-slate-900 border border-slate-700 text-white">
+              <DialogHeader>
+                <DialogTitle>Central de Ajuda</DialogTitle>
+                <DialogDescription className="text-gray-400">
+                  Entre em contato ou relate um problema encontrado no app.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <Button
+                  variant="secondary"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleContact}
+                >
+                  <Mail className="mr-2 h-4 w-4" /> Entrar em contato
+                </Button>
+
+                <div>
+                  <p className="text-sm mb-2 text-gray-300">Relatar um problema:</p>
+                  <Textarea
+                    placeholder="Descreva o problema encontrado..."
+                    value={reportMessage}
+                    onChange={(e) => setReportMessage(e.target.value)}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="primary"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleReportSubmit}
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Enviar relato
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
@@ -259,3 +300,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
