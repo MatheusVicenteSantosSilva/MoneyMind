@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react'; // Importados para o feedback visual
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -68,7 +68,6 @@ const ValidationList = ({ details, validations }) => (
     </ul>
   );
 
-
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -95,16 +94,17 @@ const Register = () => {
       [name]: value
     }));
 
-    // Atualiza a validação da senha em tempo real
+    // 1. Atualiza a validação da senha em tempo real
     if (name === 'password') {
       setPasswordValidations(checkPasswordStrength(value));
     }
   };
 
+  // RESTAURAMOS O FLUXO ORIGINAL (SEM ASYNC/AWAIT, exceto se register for async)
+  // Nota: Deixei 'async' por precaução, mas removi o 'await' na chamada de register.
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 1. Verificar se as senhas coincidem
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Erro no cadastro",
@@ -113,63 +113,55 @@ const Register = () => {
       });
       return;
     }
-
-    // 2. Aplicar a avaliação da política de senha
+    
+    // 2. Aplica a nova validação de segurança
     const validation = checkPasswordStrength(formData.password);
     
     if (!validation.isValid) {
       toast({
         title: "Senha fraca",
-        description: "Por favor, atenda a todos os requisitos de segurança da senha.",
+        description: "A senha não atende aos requisitos de segurança.",
         variant: "destructive",
       });
       return;
     }
+    
+    // Antiga validação de 6 caracteres (agora coberta pela checkPasswordStrength, mas mantida aqui por segurança se você quiser)
+    /*
+    if (formData.password.length < 6) {
+      toast({
+        title: "Erro no cadastro",
+        description: "A senha deve ter pelo menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    */
 
     setLoading(true);
 
-    try {
-      // A correção crucial: Usar try...catch para tratar o fluxo assíncrono
-      const result = await register({ 
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
+    // MANTIDO O FLUXO ORIGINAL: A chamada de register e a verificação de 'result.success'
+    const result = register({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password
+    });
+    
+    if (result.success) {
+      toast({
+        title: "Cadastro realizado com sucesso!",
+        description: "Bem-vindo ao MoneyMind.",
       });
-
-      // Lógica para lidar com o objeto de retorno (se register não lançar erro em caso de falha)
-      if (result && result.success) {
-        toast({
-          title: "Cadastro realizado com sucesso!",
-          description: "Bem-vindo ao MoneyMind.",
-        });
-        navigate('/dashboard');
-      } else if (result && result.error) {
-        toast({
-          title: "Erro no cadastro",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else if (!result) {
-         // Tratar retorno nulo ou inesperado que não lançou erro
-         toast({
-          title: "Erro no cadastro",
-          description: "Ocorreu um erro desconhecido no cadastro. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-      
-    } catch (error) {
-      // Captura erros lançados diretamente pela função 'register' (padrão de Promises rejeitadas)
-      const errorMessage = error.message || "Falha ao criar a conta. O email pode já estar em uso.";
+      navigate('/dashboard');
+    } else {
       toast({
         title: "Erro no cadastro",
-        description: errorMessage,
+        description: result.error || "Ocorreu um erro desconhecido.",
         variant: "destructive",
       });
-    } finally {
-      // Garante que o estado de loading seja sempre resetado
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -331,7 +323,7 @@ const Register = () => {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {/* Lista de Validação de Senha */}
+                    {/* Lista de Validação de Senha: ADICIONADA AQUI */}
                     <ValidationList 
                       details={passwordValidations.details} 
                       validations={passwordValidations.validations} 
