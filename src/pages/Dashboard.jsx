@@ -96,7 +96,10 @@ const Dashboard = () => {
     <>
       <Helmet>
         <title>Dashboard - MoneyMind</title>
-        <meta name="description" content="Gerencie suas finanças pessoais no dashboard do MoneyMind. Visualize saldo, transações e acesse todas as funcionalidades." />
+        <meta
+          name="description"
+          content="Gerencie suas finanças pessoais no dashboard do MoneyMind. Visualize saldo, transações e acesse todas as funcionalidades."
+        />
       </Helmet>
 
       <div className="min-h-screen p-4 md:p-6">
@@ -128,15 +131,9 @@ const Dashboard = () => {
                 <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700" align="end">
                   <DropdownMenuItem
                     className="text-white hover:bg-slate-700"
-                    onClick={() => navigate('/contato')}
+                    onClick={() => (window.location.href = 'mailto:contato.moneymind@gmail.com')}
                   >
                     <span>Entrar em contato</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-white hover:bg-slate-700"
-                    onClick={() => navigate('/reportar-problema')}
-                  >
-                    <span>Reportar um problema</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -157,7 +154,7 @@ const Dashboard = () => {
                     <User className="mr-2 h-4 w-4" />
                     <span>{user?.name}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-red-400 hover:bg-slate-700 hover:text-red-300"
                     onClick={handleLogout}
                   >
@@ -287,6 +284,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
-
