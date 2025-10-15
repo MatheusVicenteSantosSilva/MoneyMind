@@ -24,6 +24,7 @@ const Register = () => {
     length: false,
     uppercase: false,
     lowercase: false,
+    number: false,
     specialChar: false,
   });
 
@@ -35,12 +36,14 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Atualiza validação da senha em tempo real
   useEffect(() => {
     const { password } = formData;
     setPasswordValidations({
       length: password.length >= 6,
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
       specialChar: /[\W_]/.test(password),
     });
   }, [formData.password]);
@@ -53,7 +56,7 @@ const Register = () => {
     if (!validatePassword()) {
       toast({
         title: "Senha inválida",
-        description: "A senha deve ter no mínimo 6 caracteres, uma letra maiúscula, uma letra minúscula e um caractere especial.",
+        description: "A senha deve ter no mínimo 6 caracteres, uma letra maiúscula, uma letra minúscula, um número e um caractere especial.",
         variant: "destructive",
       });
       return;
@@ -76,12 +79,14 @@ const Register = () => {
       password: formData.password
     });
 
+    setLoading(false);
+
     if (result.success) {
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Bem-vindo ao MoneyMind.",
       });
-      navigate('/dashboard');
+      navigate('/dashboard'); // garante o redirecionamento
     } else {
       const errorMessage = result.error.includes('email')
         ? "Esse email já está sendo utilizado em outra conta"
@@ -93,8 +98,6 @@ const Register = () => {
         variant: "destructive",
       });
     }
-
-    setLoading(false);
   };
 
   return (
@@ -267,6 +270,10 @@ const Register = () => {
                         <span>Uma letra minúscula</span>
                       </li>
                       <li className="flex items-center space-x-2">
+                        {passwordValidations.number ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
+                        <span>Um número</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
                         {passwordValidations.specialChar ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
                         <span>Um caractere especial</span>
                       </li>
@@ -319,3 +326,4 @@ const Register = () => {
 };
 
 export default Register;
+
