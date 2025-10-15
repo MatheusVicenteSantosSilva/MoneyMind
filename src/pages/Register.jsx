@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react'; // Importei useMemo
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react'; // Importei CheckCircle e XCircle
+import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -49,6 +49,25 @@ const checkPasswordStrength = (password) => {
   return { isValid, details: results, validations };
 };
 
+// Componente que renderiza os itens da lista de validação
+const ValidationList = ({ details, validations }) => (
+    <ul className="text-sm space-y-1 mt-2 p-2 bg-white/5 rounded-lg border border-white/10">
+      {Object.keys(validations).map((key) => {
+        const passed = details[key];
+        const message = validations[key].message;
+        const colorClass = passed ? 'text-green-400' : 'text-gray-400';
+        const Icon = passed ? CheckCircle : XCircle;
+
+        return (
+          <li key={key} className={`flex items-center space-x-2 ${colorClass}`}>
+            <Icon className="h-4 w-4" />
+            <span>{message}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -61,7 +80,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Novo estado para a validação em tempo real
+  // Estado para a validação em tempo real
   const [passwordValidations, setPasswordValidations] = useState(checkPasswordStrength('')); 
 
   const { register } = useAuth();
@@ -109,47 +128,49 @@ const Register = () => {
 
     setLoading(true);
 
-    const result = await register({ 
-      name: formData.name,
-      email: formData.email,
-      password: formData.password
-    });
-    
-    if (result.success) {
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Bem-vindo ao MoneyMind.",
+    try {
+      // A correção crucial: Usar try...catch para tratar o fluxo assíncrono
+      const result = await register({ 
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
       });
-      navigate('/dashboard');
-    } else {
+
+      // Lógica para lidar com o objeto de retorno (se register não lançar erro em caso de falha)
+      if (result && result.success) {
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Bem-vindo ao MoneyMind.",
+        });
+        navigate('/dashboard');
+      } else if (result && result.error) {
+        toast({
+          title: "Erro no cadastro",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else if (!result) {
+         // Tratar retorno nulo ou inesperado que não lançou erro
+         toast({
+          title: "Erro no cadastro",
+          description: "Ocorreu um erro desconhecido no cadastro. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+      
+    } catch (error) {
+      // Captura erros lançados diretamente pela função 'register' (padrão de Promises rejeitadas)
+      const errorMessage = error.message || "Falha ao criar a conta. O email pode já estar em uso.";
       toast({
         title: "Erro no cadastro",
-        description: result.error || "Ocorreu um erro desconhecido no cadastro.",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      // Garante que o estado de loading seja sempre resetado
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
-
-  // Componente que renderiza os itens da lista de validação
-  const ValidationList = ({ details, validations }) => (
-    <ul className="text-sm space-y-1 mt-2 p-2 bg-white/5 rounded-lg border border-white/10">
-      {Object.keys(validations).map((key) => {
-        const passed = details[key];
-        const message = validations[key].message;
-        const colorClass = passed ? 'text-green-400' : 'text-gray-400';
-        const Icon = passed ? CheckCircle : XCircle;
-
-        return (
-          <li key={key} className={`flex items-center space-x-2 ${colorClass}`}>
-            <Icon className="h-4 w-4" />
-            <span>{message}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
 
   return (
     <>
