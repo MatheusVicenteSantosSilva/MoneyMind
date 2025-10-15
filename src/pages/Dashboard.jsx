@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
-import Ajuda from './pages/Ajuda';
 import { 
   Wallet, 
   Plus, 
@@ -13,7 +12,6 @@ import {
   LogOut,
   ArrowUpRight,
   ArrowDownRight,
-  HelpCircle 
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -90,13 +88,7 @@ const Dashboard = () => {
       icon: FileText,
       path: '/reports',
       color: 'from-orange-500 to-red-500'
-    },
-     title: 'Ajuda',
-    description: 'Reporte problemas ou entre em contato com a MoneyMind',
-    icon: User, // você pode trocar por outro ícone, como um ? ou MessageCircle
-    path: '/ajuda',
-    color: 'from-indigo-500 to-blue-500'
-  }
+    }
   ];
 
   return (
