@@ -2,71 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Eye, EyeOff, DollarSign, UserPlus, CheckCircle, XCircle } from 'lucide-react'; // Importados para o feedback visual
+import { Eye, EyeOff, DollarSign, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/use-toast';
-
-// Função para validar e retornar o status detalhado
-const checkPasswordStrength = (password) => {
-  const validations = {
-    minLength: {
-      regex: /.{6,}/, // Mínimo 6 caracteres
-      message: "No mínimo 6 dígitos",
-    },
-    uppercase: {
-      regex: /[A-Z]/, // Pelo menos 1 letra maiúscula
-      message: "1 letra maiúscula",
-    },
-    lowercase: {
-      regex: /[a-z]/, // Pelo menos 1 letra minúscula
-      message: "1 letra minúscula",
-    },
-    number: {
-      regex: /\d/, // Pelo menos 1 número
-      message: "1 número",
-    },
-    specialChar: {
-      regex: /[!@#$%^&*()_+={}\[\]:;"'<>,.?/\\|-]/, // Pelo menos 1 caractere especial
-      message: "1 caractere especial",
-    },
-  };
-
-  const results = {};
-  let isValid = true;
-
-  for (const key in validations) {
-    const passed = validations[key].regex.test(password);
-    results[key] = passed;
-    if (!passed) {
-      isValid = false;
-    }
-  }
-
-  return { isValid, details: results, validations };
-};
-
-// Componente que renderiza os itens da lista de validação
-const ValidationList = ({ details, validations }) => (
-    <ul className="text-sm space-y-1 mt-2 p-2 bg-white/5 rounded-lg border border-white/10">
-      {Object.keys(validations).map((key) => {
-        const passed = details[key];
-        const message = validations[key].message;
-        const colorClass = passed ? 'text-green-400' : 'text-gray-400';
-        const Icon = passed ? CheckCircle : XCircle;
-
-        return (
-          <li key={key} className={`flex items-center space-x-2 ${colorClass}`}>
-            <Icon className="h-4 w-4" />
-            <span>{message}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -78,30 +20,17 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Estado para a validação em tempo real
-  const [passwordValidations, setPasswordValidations] = useState(checkPasswordStrength('')); 
-
   const { register } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-
-    // 1. Atualiza a validação da senha em tempo real
-    if (name === 'password') {
-      setPasswordValidations(checkPasswordStrength(value));
-    }
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
-  // RESTAURAMOS O FLUXO ORIGINAL (SEM ASYNC/AWAIT, exceto se register for async)
-  // Nota: Deixei 'async' por precaução, mas removi o 'await' na chamada de register.
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -113,21 +42,7 @@ const Register = () => {
       });
       return;
     }
-    
-    // 2. Aplica a nova validação de segurança
-    const validation = checkPasswordStrength(formData.password);
-    
-    if (!validation.isValid) {
-      toast({
-        title: "Senha fraca",
-        description: "A senha não atende aos requisitos de segurança.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Antiga validação de 6 caracteres (agora coberta pela checkPasswordStrength, mas mantida aqui por segurança se você quiser)
-    /*
+
     if (formData.password.length < 6) {
       toast({
         title: "Erro no cadastro",
@@ -136,11 +51,9 @@ const Register = () => {
       });
       return;
     }
-    */
 
     setLoading(true);
 
-    // MANTIDO O FLUXO ORIGINAL: A chamada de register e a verificação de 'result.success'
     const result = register({
       name: formData.name,
       email: formData.email,
@@ -156,7 +69,7 @@ const Register = () => {
     } else {
       toast({
         title: "Erro no cadastro",
-        description: result.error || "Ocorreu um erro desconhecido.",
+        description: result.error,
         variant: "destructive",
       });
     }
@@ -173,8 +86,7 @@ const Register = () => {
       
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-          
-          {/* Left Side - Branding (Conteúdo omitido para brevidade) */}
+          {/* Left Side - Branding */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -246,7 +158,6 @@ const Register = () => {
             </motion.div>
           </motion.div>
 
-
           {/* Right Side - Register Form */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
@@ -301,7 +212,6 @@ const Register = () => {
                     />
                   </div>
                   
-                  {/* CAMPO DE SENHA MODIFICADO */}
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-white">Senha</Label>
                     <div className="relative">
@@ -309,7 +219,7 @@ const Register = () => {
                         id="password"
                         name="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Crie uma senha forte"
+                        placeholder="Mínimo 6 caracteres"
                         value={formData.password}
                         onChange={handleChange}
                         required
@@ -323,11 +233,6 @@ const Register = () => {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {/* Lista de Validação de Senha: ADICIONADA AQUI */}
-                    <ValidationList 
-                      details={passwordValidations.details} 
-                      validations={passwordValidations.validations} 
-                    />
                   </div>
 
                   <div className="space-y-2">
@@ -383,3 +288,4 @@ const Register = () => {
 };
 
 export default Register;
+
