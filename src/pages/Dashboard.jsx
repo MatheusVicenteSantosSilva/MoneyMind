@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
+import Ajuda from './pages/Ajuda';
 import { 
   Wallet, 
   Plus, 
