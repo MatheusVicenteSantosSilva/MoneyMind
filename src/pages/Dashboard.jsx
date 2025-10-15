@@ -88,7 +88,13 @@ const Dashboard = () => {
       icon: FileText,
       path: '/reports',
       color: 'from-orange-500 to-red-500'
-    }
+    },
+     title: 'Ajuda',
+    description: 'Reporte problemas ou entre em contato com a MoneyMind',
+    icon: User, // você pode trocar por outro ícone, como um ? ou MessageCircle
+    path: '/ajuda',
+    color: 'from-indigo-500 to-blue-500'
+  }
   ];
 
   return (
