@@ -12,11 +12,10 @@ const AuthContext = createContext();
  * @returns {Promise<string>} O hash da senha em formato hexadecimal.
  */
 const hashPassword = async (password) => {
+  if (!password) return '';
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
-  // Gera o hash (resumo criptográfico)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data); 
-  // Converte o ArrayBuffer do hash para uma string hexadecimal
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   return hashHex;
@@ -29,9 +28,19 @@ const hashPassword = async (password) => {
  * @returns {Promise<boolean>} Retorna true se as senhas coincidirem (após hashing).
  */
 const comparePassword = async (password, storedHash) => {
+    if (!password || !storedHash) return false;
     const newHash = await hashPassword(password);
     return newHash === storedHash;
 };
+
+/**
+ * Auxiliar para verificar se a senha salva já está em formato hash (SHA-256).
+ * Um hash SHA-256 tem 64 caracteres hexadecimais.
+ */
+const isPasswordHashed = (password) => {
+    return typeof password === 'string' && password.length === 64 && /^[0-9a-fA-F]+$/.test(password);
+};
+
 
 // --------------------------------------------------------
 // HOOKS E CONTEXTO
@@ -58,26 +67,62 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // --------------------------------------------------------
-  // FUNÇÕES DE AUTENTICAÇÃO (AGORA ASSÍNCRONAS)
+  // FUNÇÕES DE AUTENTICAÇÃO (AGORA ASSÍNCRONAS COM MIGRAÇÃO)
   // --------------------------------------------------------
 
   /**
-   * Realiza o login, comparando o hash da senha digitada com o hash armazenado.
+   * Realiza o login, com lógica de fallback e migração para senhas antigas.
    */
   const login = async (email, password) => { // Tornada ASYNC
     const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
-    // Busca o usuário apenas pelo email
     const user = users.find(u => u.email === email);
+
+    if (!user) {
+        return { success: false, error: 'Email ou senha incorretos' };
+    }
+
+    let isAuthenticated = false;
+    let needsMigration = false;
+
+    // PASSO 1: Tenta logar usando o HASH seguro (o novo método)
+    if (isPasswordHashed(user.password)) {
+        isAuthenticated = await comparePassword(password, user.password);
+    } 
     
-    // Verifica se o usuário existe E se o hash da senha digitada bate com o hash salvo
-    if (user && await comparePassword(password, user.password)) { 
-      const userWithoutPassword = { ...user };
-      delete userWithoutPassword.password;
-      setUser(userWithoutPassword);
-      localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
-      return { success: true };
+    // PASSO 2: FALLBACK - Tenta logar usando a senha em TEXTO PURO (método antigo)
+    // Isso só será tentado se o login falhou OU se a senha salva é texto puro
+    if (!isAuthenticated && !isPasswordHashed(user.password)) {
+        if (user.password === password) {
+            isAuthenticated = true; // Login bem-sucedido com texto puro!
+            needsMigration = true;  // Marcamos para migração
+        }
     }
     
+    if (isAuthenticated) {
+        // PASSO 3: MIGRAÇÃO - Se o login foi feito com texto puro, nós atualizamos
+        if (needsMigration) {
+            console.warn(`[Segurança] Migrando senha do usuário ${user.id} para Hashing.`);
+            const hashedPassword = await hashPassword(password);
+            
+            // Atualiza a senha na array de users do localStorage para o novo HASH
+            const userIndex = users.findIndex(u => u.id === user.id);
+            if (userIndex !== -1) {
+                users[userIndex].password = hashedPassword;
+                localStorage.setItem('moneymind_users', JSON.stringify(users));
+            }
+            // Atualiza o objeto do usuário localmente
+            user.password = hashedPassword;
+        }
+
+        // Finaliza o Login
+        const userWithoutPassword = { ...user };
+        delete userWithoutPassword.password;
+        setUser(userWithoutPassword);
+        localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
+        return { success: true };
+    }
+    
+    // Falha final
     return { success: false, error: 'Email ou senha incorretos' };
   };
 
@@ -115,7 +160,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // --------------------------------------------------------
-  // FUNÇÕES AUXILIARES (PERMANECEM AS MESMAS)
+  // FUNÇÕES AUXILIARES
   // --------------------------------------------------------
 
   const logout = () => {
@@ -131,8 +176,7 @@ export const AuthProvider = ({ children }) => {
     const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
     const userIndex = users.findIndex(u => u.id === user.id);
     if (userIndex !== -1) {
-      // Nota: o update aqui NÃO deve alterar a senha, a menos que haja um campo específico para isso.
-      users[userIndex] = { ...users[userIndex], ...userData }; 
+      users[userIndex] = { ...users[userIndex], ...userData };
       localStorage.setItem('moneymind_users', JSON.stringify(users));
     }
   };
