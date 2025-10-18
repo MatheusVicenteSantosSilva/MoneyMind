@@ -47,152 +47,166 @@ const isPasswordHashed = (password) => {
 // --------------------------------------------------------
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
-  return context;
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    }
+    return context;
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('moneymind_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
-  }, []);
+    useEffect(() => {
+        const savedUser = localStorage.getItem('moneymind_user');
+        if (savedUser) {
+            setUser(JSON.parse(savedUser));
+        }
+        setLoading(false);
+    }, []);
 
-  // --------------------------------------------------------
-  // FUNÇÕES DE AUTENTICAÇÃO (AGORA ASSÍNCRONAS COM MIGRAÇÃO)
-  // --------------------------------------------------------
+    // --------------------------------------------------------
+    // FUNÇÕES DE AUTENTICAÇÃO (AGORA ASSÍNCRONAS COM MIGRAÇÃO E RESET)
+    // --------------------------------------------------------
 
-  /**
-   * Realiza o login, com lógica de fallback e migração para senhas antigas.
-   */
-  const login = async (email, password) => { // Tornada ASYNC
-    const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
-    const user = users.find(u => u.email === email);
+    const login = async (email, password) => {
+        const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
+        const user = users.find(u => u.email === email);
 
-    if (!user) {
-        return { success: false, error: 'Email ou senha incorretos' };
-    }
+        if (!user) {
+            return { success: false, error: 'Email ou senha incorretos' };
+        }
 
-    let isAuthenticated = false;
-    let needsMigration = false;
+        let isAuthenticated = false;
+        let needsMigration = false;
 
-    // PASSO 1: Tenta logar usando o HASH seguro (o novo método)
-    if (isPasswordHashed(user.password)) {
-        isAuthenticated = await comparePassword(password, user.password);
-    } 
-    
-    // PASSO 2: FALLBACK - Tenta logar usando a senha em TEXTO PURO (método antigo)
-    // Isso só será tentado se o login falhou OU se a senha salva é texto puro
-    if (!isAuthenticated && !isPasswordHashed(user.password)) {
-        if (user.password === password) {
-            isAuthenticated = true; // Login bem-sucedido com texto puro!
-            needsMigration = true;  // Marcamos para migração
-        }
-    }
-    
-    if (isAuthenticated) {
-        // PASSO 3: MIGRAÇÃO - Se o login foi feito com texto puro, nós atualizamos
-        if (needsMigration) {
-            console.warn(`[Segurança] Migrando senha do usuário ${user.id} para Hashing.`);
-            const hashedPassword = await hashPassword(password);
-            
-            // Atualiza a senha na array de users do localStorage para o novo HASH
-            const userIndex = users.findIndex(u => u.id === user.id);
-            if (userIndex !== -1) {
-                users[userIndex].password = hashedPassword;
-                localStorage.setItem('moneymind_users', JSON.stringify(users));
-            }
-            // Atualiza o objeto do usuário localmente
-            user.password = hashedPassword;
-        }
+        // PASSO 1: Tenta logar usando o HASH seguro (o novo método)
+        if (isPasswordHashed(user.password)) {
+            isAuthenticated = await comparePassword(password, user.password);
+        } 
+        
+        // PASSO 2: FALLBACK - Tenta logar usando a senha em TEXTO PURO (método antigo)
+        if (!isAuthenticated && !isPasswordHashed(user.password)) {
+            if (user.password === password) {
+                isAuthenticated = true;
+                needsMigration = true;
+            }
+        }
+        
+        if (isAuthenticated) {
+            // PASSO 3: MIGRAÇÃO
+            if (needsMigration) {
+                console.warn(`[Segurança] Migrando senha do usuário ${user.id} para Hashing.`);
+                const hashedPassword = await hashPassword(password);
+                
+                const userIndex = users.findIndex(u => u.id === user.id);
+                if (userIndex !== -1) {
+                    users[userIndex].password = hashedPassword;
+                    localStorage.setItem('moneymind_users', JSON.stringify(users));
+                }
+                user.password = hashedPassword;
+            }
 
-        // Finaliza o Login
-        const userWithoutPassword = { ...user };
-        delete userWithoutPassword.password;
-        setUser(userWithoutPassword);
-        localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
-        return { success: true };
-    }
-    
-    // Falha final
-    return { success: false, error: 'Email ou senha incorretos' };
-  };
+            // Finaliza o Login
+            const userWithoutPassword = { ...user };
+            delete userWithoutPassword.password;
+            setUser(userWithoutPassword);
+            localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
+            return { success: true };
+        }
+        
+        // Falha final
+        return { success: false, error: 'Email ou senha incorretos' };
+    };
 
-  /**
-   * Registra um novo usuário, salvando o HASH da senha em vez da senha em texto puro.
-   */
-  const register = async (userData) => { // Tornada ASYNC
-    const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
-    
-    if (users.find(u => u.email === userData.email)) {
-      return { success: false, error: 'Email já cadastrado' };
-    }
-    
-    // PASSO DE SEGURANÇA: Hashing da senha antes de salvar
-    const hashedPassword = await hashPassword(userData.password);
+    const register = async (userData) => {
+        const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
+        
+        if (users.find(u => u.email === userData.email)) {
+            return { success: false, error: 'Email já cadastrado' };
+        }
+        
+        const hashedPassword = await hashPassword(userData.password);
 
-    const newUser = {
-      id: Date.now().toString(),
-      name: userData.name,
-      email: userData.email,
-      password: hashedPassword, // SALVA O HASH CRIPTOGRAFADO AQUI!
-      createdAt: new Date().toISOString(),
-      balance: 0
-    };
+        const newUser = {
+            id: Date.now().toString(),
+            name: userData.name,
+            email: userData.email,
+            password: hashedPassword, // SALVA O HASH CRIPTOGRAFADO!
+            createdAt: new Date().toISOString(),
+            balance: 0
+        };
 
-    users.push(newUser);
-    localStorage.setItem('moneymind_users', JSON.stringify(users));
+        users.push(newUser);
+        localStorage.setItem('moneymind_users', JSON.stringify(users));
 
-    const userWithoutPassword = { ...newUser };
-    delete userWithoutPassword.password;
-    setUser(userWithoutPassword);
-    localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
+        const userWithoutPassword = { ...newUser };
+        delete userWithoutPassword.password;
+        setUser(userWithoutPassword);
+        localStorage.setItem('moneymind_user', JSON.stringify(userWithoutPassword));
 
-    return { success: true };
-  };
+        return { success: true };
+    };
 
-  // --------------------------------------------------------
-  // FUNÇÕES AUXILIARES
-  // --------------------------------------------------------
+    /**
+     * NOVO: Redefine a senha de um usuário existente (usado na página ForgotPassword).
+     */
+    const resetPassword = async (email, newPassword) => {
+        const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
+        const userIndex = users.findIndex(u => u.email === email);
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('moneymind_user');
-  };
+        if (userIndex === -1) {
+            // Não deve informar se o email existe por segurança (evitar enumeração de usuários)
+            return { success: false, error: 'Não foi possível redefinir a senha. Verifique o email.' };
+        }
 
-  const updateUser = (userData) => {
-    const updatedUser = { ...user, ...userData };
-    setUser(updatedUser);
-    localStorage.setItem('moneymind_user', JSON.stringify(updatedUser));
+        // Gera o hash da nova senha
+        const hashedPassword = await hashPassword(newPassword);
 
-    const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
-    const userIndex = users.findIndex(u => u.id === user.id);
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...userData };
-      localStorage.setItem('moneymind_users', JSON.stringify(users));
-    }
-  };
+        // Atualiza a senha no registro do localStorage
+        users[userIndex].password = hashedPassword;
+        
+        localStorage.setItem('moneymind_users', JSON.stringify(users));
 
-  const value = {
-    user,
-    login,
-    register,
-    logout,
-    updateUser,
-    loading
-  };
+        return { success: true };
+    };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
+    // --------------------------------------------------------
+    // FUNÇÕES AUXILIARES
+    // --------------------------------------------------------
+
+    const logout = () => {
+        setUser(null);
+        localStorage.removeItem('moneymind_user');
+    };
+
+    const updateUser = (userData) => {
+        const updatedUser = { ...user, ...userData };
+        setUser(updatedUser);
+        localStorage.setItem('moneymind_user', JSON.stringify(updatedUser));
+
+        const users = JSON.parse(localStorage.getItem('moneymind_users') || '[]');
+        const userIndex = users.findIndex(u => u.id === user.id);
+        if (userIndex !== -1) {
+            users[userIndex] = { ...users[userIndex], ...userData };
+            localStorage.setItem('moneymind_users', JSON.stringify(users));
+        }
+    };
+
+    const value = {
+        user,
+        login,
+        register,
+        logout,
+        updateUser,
+        resetPassword, // EXPORTADA AQUI!
+        loading
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
 };
